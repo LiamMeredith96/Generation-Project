@@ -2,75 +2,79 @@ import pymysql
 import os
 from dotenv import load_dotenv
 
+# Loads environment variables from a .env file in the project root.
 load_dotenv()
+
+# Reads the MySQL connection details from environment variables.
 HOST = os.environ.get("mysql_host")
 USER = os.environ.get("mysql_user")
 PASSWORD = os.environ.get("mysql_pass")
 WAREHOUSE_DB_NAME = os.environ.get("mysql_db")
 
 
+# Creates and returns a connection and cursor for the MySQL warehouse database.
 def setup_db_connection(host=HOST, user=USER, password=PASSWORD, warehouse_db_name=WAREHOUSE_DB_NAME):
     print("connecting to database....")
     connection = pymysql.connect(
         host=host,
         user=user,
         password=password,
-        database=warehouse_db_name
+        database=warehouse_db_name,
     )
     cursor = connection.cursor()
     return connection, cursor
 
 
+# Executes a SELECT query and returns the first row found.
 def load_data_from_sql(sql_query, cursor):
     cursor.execute(sql_query)
     result = cursor.fetchone()
     return result
 
 
+# Executes an INSERT statement and returns the auto-generated primary key.
 def save_data_to_sql(*args, sql_code, cursor):
     cursor.execute(sql_code, args)
     generated_id = cursor.lastrowid
     return generated_id
 
 
+# Executes an UPDATE (or other non-SELECT) SQL statement.
 def update_to_sql(sql_query, cursor):
     cursor.execute(sql_query)
-################## Product ##############################
 
 
+# Checks whether a product already exists in the product table.
 def is_product_in_sql(product_name, cursor):
     sql = f'SELECT * FROM product WHERE product_name="{product_name}";'
-    # print(sql)
-    # input("")
     cursor.execute(sql)
     result = cursor.fetchone()
     return result
 
 
+# Inserts a new product into the product table.
 def insert_product_into_sql(product_name, product_cost, cursor):
     sql = "INSERT INTO product (product_name, product_cost) VALUES (%s, %s);"
     values = (product_name, product_cost)
     cursor.execute(sql, values)
 
-################# Branch ####################################
 
+# Checks whether a branch already exists in the branch table.
 def is_branch_in_sql(branch_name, cursor):
-    sql = f'SELECT * FROM branch WHERE branch_name = %s;'
+    sql = "SELECT * FROM branch WHERE branch_name = %s;"
     cursor.execute(sql, (branch_name,))
     result = cursor.fetchone()
     return result
-################################################################
 
+
+# Inserts a new branch into the branch table.
 def insert_branch_into_sql(branch_name, cursor):
     sql = "INSERT INTO branch (branch_name) VALUES (%s);"
     values = (branch_name,)
-    # cursor = db_connection.cursor()
     cursor.execute(sql, values)
-    # db_connection.commit()
-    # cursor.close()
 
-############################ payment_method ############################
 
+# Checks whether a payment method already exists in the payment_method table.
 def is_payment_method_in_sql(payment_name, cursor):
     sql = f'SELECT * FROM payment_method WHERE payment_name="{payment_name}";'
     cursor.execute(sql)
@@ -78,102 +82,104 @@ def is_payment_method_in_sql(payment_name, cursor):
     return result
 
 
+# Inserts a new payment method into the payment_method table.
 def insert_payment_method_into_sql(payment_name, cursor):
     sql = "INSERT INTO payment_method (payment_name) VALUES (%s);"
     values = (payment_name,)
     cursor.execute(sql, values)
 
-##############################################################
 
-
+# Inserts a list of raw CSV rows into a staging (raw_data) table.
 def insert_csv_to_raw_data(raw_list):
     sql = """
-            INSERT INTO raw_data (OrderDateTime, branch, Items, TotalAmount, PaymentMethod)
-            VALUES (%s, %s, %s, %s, %s);
-        """
+        INSERT INTO raw_data (OrderDateTime, branch, Items, TotalAmount, PaymentMethod)
+        VALUES (%s, %s, %s, %s, %s);
+    """
 
     the_connection, my_cursor = setup_db_connection()
     for data in raw_list:
-        row = (data['date'], data['branch'], data['order_details'],
-               data['total'], data['mode_of_payment']
-               )
-
+        row = (
+            data["date"],
+            data["branch"],
+            data["order_details"],
+            data["total"],
+            data["mode_of_payment"],
+        )
         my_cursor.execute(sql, row)
+
     the_connection.commit()
-    print('Rows inserted.')
+    print("Rows inserted.")
 
 
+# Creates lightweight test tables (used if you want to test branch/payment logic in isolation).
 def create_test_db_tables(connection, cursor):
-
-    create_test_branch_table = \
-        """
-        
+    create_test_branch_table = """
         CREATE TABLE IF NOT EXISTS test_branch (
             branch_id INT AUTO_INCREMENT PRIMARY KEY,
             branch_name VARCHAR(255) NOT NULL
-        )
-    
+        );
     """
-    create_test_payment_method_table = \
-        """
-         CREATE TABLE IF NOT EXISTS test_payment_method (
+
+    create_test_payment_method_table = """
+        CREATE TABLE IF NOT EXISTS test_payment_method (
             payment_id INT AUTO_INCREMENT PRIMARY KEY,
             payment_name VARCHAR(255) NOT NULL
-        )
-    
+        );
     """
+
     cursor.execute(create_test_branch_table)
     cursor.execute(create_test_payment_method_table)
     connection.commit()
 
 
+# Creates all required tables (if they do not already exist) in the warehouse database.
 def create_db_tables(connection, cursor):
     print("check if database exist and if not it will create...")
-    create_branch_data_table = \
-        """
+
+    create_branch_data_table = """
         CREATE TABLE IF NOT EXISTS branch(
             branch_id INT NOT NULL AUTO_INCREMENT,
-            branch_name varchar(50),
+            branch_name VARCHAR(50),
             PRIMARY KEY(branch_id)
         );
     """
-    create_payment_method_table = \
-        """
+
+    create_payment_method_table = """
         CREATE TABLE IF NOT EXISTS payment_method(
             payment_id INT NOT NULL AUTO_INCREMENT,
-            payment_name varchar(50),
+            payment_name VARCHAR(50),
             PRIMARY KEY(payment_id)
         );
     """
-    create_products_table = \
-        """
+
+    create_products_table = """
         CREATE TABLE IF NOT EXISTS product(
             product_id INT NOT NULL AUTO_INCREMENT,
-            product_name varchar(50),
-            product_cost decimal(19,2),
+            product_name VARCHAR(50),
+            product_cost DECIMAL(19,2),
             PRIMARY KEY(product_id)
         );
     """
-    create_transaction_table = \
-        """
+
+    create_transaction_table = """
         CREATE TABLE IF NOT EXISTS transaction(
             transaction_id INT NOT NULL AUTO_INCREMENT,
-            transaction_date varchar(50),
-            branch_id int,
-            total_payment decimal(19,2),
-            payment_id int,
+            transaction_date VARCHAR(50),
+            branch_id INT,
+            total_payment DECIMAL(19,2),
+            payment_id INT,
             PRIMARY KEY(transaction_id),
             FOREIGN KEY(branch_id) REFERENCES branch(branch_id),
             FOREIGN KEY(payment_id) REFERENCES payment_method(payment_id)
         );
     """
-    create_order_details_table = \
-        """
+
+    create_order_details_table = """
         CREATE TABLE IF NOT EXISTS order_details(
             Order_id INT NOT NULL AUTO_INCREMENT,
-            transaction_id int,
-            product_id int,
-            quantity float,
+            transaction_id INT,
+            product_id INT,
+            quantity FLOAT,
             PRIMARY KEY(Order_id),
             FOREIGN KEY(transaction_id) REFERENCES transaction(transaction_id),
             FOREIGN KEY(product_id) REFERENCES product(product_id)
@@ -186,5 +192,3 @@ def create_db_tables(connection, cursor):
     cursor.execute(create_transaction_table)
     cursor.execute(create_order_details_table)
     connection.commit()
-    # cursor.close()
-    # connection.close()
