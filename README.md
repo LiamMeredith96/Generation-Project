@@ -12,10 +12,10 @@ Their existing tools only produce per-branch reports and make it difficult to se
 
 # Members
 
-Liam (Scrum Master)
-Kirian
-Kevin
-Jewen
+- Liam (Scrum Master)
+- Kirian
+- Kevin
+- Jewen
 
 ## Business problem
 
